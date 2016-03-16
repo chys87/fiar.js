@@ -30,6 +30,10 @@ Available AIs: ${Object.keys(AI_DICT)}`)
         describe: 'Height of the board',
         default: DEFAULT_HEIGHT,
     })
+    .options('holes', {
+        describe: 'Number of holes on the board',
+        default: 0,
+    })
     .option('sleep', {
         alias: 's',
         describe: 'Sleep time between moves',
@@ -59,6 +63,17 @@ for (const color of [C.BLACK, C.WHITE]) {
 let board = new Board(ARGS.w, ARGS.h);
 let moves = {[C.BLACK]: 0, [C.WHITE]: 0};
 let totalTimes = {[C.BLACK]: 0, [C.WHITE]: 0};
+
+if (ARGS.holes) {
+    const holes = ARGS.holes;
+    let blanks = board.findBlanks();
+    for (let i = 0; i < holes; ++i) {
+        var k = Math.floor(Math.random() * blanks.length);
+        board[blanks[k][0]][blanks[k][1]] = C.WALL;
+        blanks[k] = blanks[blanks.length - 1];
+        blanks.length -= 1;
+    }
+}
 
 const write = process.stdout.write.bind(process.stdout);
 
