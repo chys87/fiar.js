@@ -4,6 +4,7 @@ const BLANK = 0;
 const WHITE = 1;
 const BLACK = 2;
 const WALL = 3;
+const STONE_COLORS = [BLACK, WHITE];
 const DISPLAY = {
     [BLANK]: '  ',
     [WHITE]: '\x1b[46m  \x1b[0m',
@@ -33,7 +34,7 @@ const DIRECTIONS = {
 
 Object.assign(exports, {
     BLANK, WHITE, BLACK, WALL,
-    DISPLAY, COLOR_DESC,
+    DISPLAY, COLOR_DESC, STONE_COLORS,
     REVERSE_COLOR,
 
     RIGHT, DOWN, RIGHTDOWN, DIRECTIONS,

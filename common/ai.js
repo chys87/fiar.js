@@ -1,6 +1,13 @@
 'use strict';
 
 const C = require('./constants');
+const BLANK = C.BLANK;
+const WHITE = C.WHITE;
+const BLACK = C.BLACK;
+const WALL = C.WALL;
+const STONE_COLORS = C.STONE_COLORS;
+const REVERSE_COLOR = C.REVERSE_COLOR;
+const DIRECTIONS = C.DIRECTIONS;
 
 const AI = exports.AI = class AI {
     constructor(color) {
@@ -41,7 +48,7 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
         for (let i = 1; i <= h; ++i) {
             let nb = board.copy({deepcopyRows: i});
             for (let j = 1; j <= w; ++j) {
-                if (board[i][j] != C.BLANK)
+                if (board[i][j] != BLANK)
                     continue;
                 nb[i][j] = color;
                 let score = this.getScore(nb);
@@ -49,7 +56,7 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
                     best_score = score;
                     best_move = [i, j];
                 }
-                nb[i][j] = C.BLANK;
+                nb[i][j] = BLANK;
             }
         }
 
@@ -58,26 +65,30 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
 
     getScore(board) {
         const color = this.color;
-        const enemy = C.REVERSE_COLOR[color];
+        const enemy = REVERSE_COLOR[color];
 
         let scoreBoard = {
-            [C.BLACK]: {},
-            [C.WHITE]: {},
+            [BLACK]: {},
+            [WHITE]: {},
         };
 
         const semilines = board.findSemiLines(5, 1);
 
-        for (const clr of [C.BLACK, C.WHITE]) {
+        for (const clr of STONE_COLORS) {
+            let scb = scoreBoard[clr];
             for (const sl of semilines[clr]) {
                 let i = sl.i;
                 let j = sl.j;
-                let di = C.DIRECTIONS[sl.dir].i;
-                let dj = C.DIRECTIONS[sl.dir].j;
+                let di = DIRECTIONS[sl.dir].i;
+                let dj = DIRECTIONS[sl.dir].j;
                 for (let k = 0; k < 5; ++k) {
-                    const key = `${i},${j}`;
-                    if (!scoreBoard[clr][key])
-                        scoreBoard[clr][key] = [0, 0, 0, 0, 0, 0];
-                    scoreBoard[clr][key][sl.cnt + (clr == enemy)] += 1;
+                    if (board[i][j] == BLANK) {
+                        const key = `${i},${j}`;
+                        let stats = scb[key];
+                        if (!stats)
+                            scb[key] = stats = [0, 0, 0, 0, 0, 0];
+                        stats[sl.cnt + (clr == enemy)] += 1;
+                    }
                     i += di;
                     j += dj;
                 }
@@ -85,10 +96,10 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
         }
 
         let scores = {
-            [C.BLACK]: 0,
-            [C.WHITE]: 0,
+            [BLACK]: 0,
+            [WHITE]: 0,
         };
-        for (const clr of [C.BLACK, C.WHITE]) {
+        for (const clr of STONE_COLORS) {
             const scb = scoreBoard[clr];
             let res = 0;
             for (const key in scb) {
@@ -100,13 +111,13 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
                 else if (stats[4] + stats[3] >= 2)
                     res += 50000;
                 else
-                    res += (stats[4] + stats[3]) * 100 + stats[2] * 8 + stats[1];
+                    res += (stats[4] * 2 + stats[3]) * 100 + stats[2] * 8 + stats[1];
             }
             scores[clr] = res;
         }
 
-        // Factor in [0.5, 1]. The smaller, the more agressive.
-        const factor = 1 - this.aggressiveness / 2;
+        // Factor in [0.2, 1]. The smaller, the more agressive.
+        const factor = 1 - this.aggressiveness * .8;
         return scores[color] - scores[enemy] * factor;
     }
 
@@ -114,19 +125,19 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
         const w = board.width;
         const h = board.height;
         const color = this.color;
-        const enemy = C.REVERSE_COLOR[color];
+        const enemy = REVERSE_COLOR[color];
 
         // An empty board. Place in the center
         if (board.isEmpty()) {
             let i = (h + 1) >>> 1;
             let j = (w + 1) >>> 1;
-            if (board[i][j] == C.BLANK)
+            if (board[i][j] == BLANK)
                 return [i, j];
-            if (board[i][j + 1] == C.BLANK)
+            if (board[i][j + 1] == BLANK)
                 return [i, j + 1];
-            if (board[i + 1][j] == C.BLANK)
+            if (board[i + 1][j] == BLANK)
                 return [i + 1, j];
-            if (board[i + 1][j + 1] == C.BLANK)
+            if (board[i + 1][j + 1] == BLANK)
                 return [i + 1, j + 1];
         }
 
@@ -134,10 +145,10 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
         for (const item of board.findSemiLines(5, 4)[color]) {
             let i = item.i;
             let j = item.j;
-            let dir = C.DIRECTIONS[item.dir];
+            let dir = DIRECTIONS[item.dir];
             let cnt = item.cnt;
             for (let k = 0; k < 5; ++k) {
-                if (board[i + dir.i * k][j + dir.j * k] == C.BLANK)
+                if (board[i + dir.i * k][j + dir.j * k] == BLANK)
                     return [i + dir.i * k, j + dir.j * k];
             }
         }

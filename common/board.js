@@ -7,19 +7,20 @@ const WHITE = constants.WHITE;
 const DIRECTIONS = constants.DIRECTIONS;
 const WALL = constants.WALL;
 
-class Board extends Array {
+const Board = exports.Board = class Board extends Array {
     constructor(width, height, options) {
         super(height + 2);
 
         if (options && options.internal)
             return;
 
-        let sentinel_row = new Uint8Array(width + 2);
+        let sentinel_row = new Array(width + 2);
         sentinel_row.fill(WALL);
         this[0] = this[height + 1] = sentinel_row;
 
         for (let i = 1; i <= height; ++i) {
-            let row = this[i] = new Uint8Array(width + 2);
+            let row = this[i] = new Array(width + 2);
+            row.fill(0);
             row[0] = row[width + 1] = WALL;
         }
     }
@@ -37,10 +38,10 @@ class Board extends Array {
             res[i] = this[i];
         if (options && options.deepcopyRows.length) {
             for (let i of options.deepcopyRows)
-                res[i] = Uint8Array.from(res[i]);
+                res[i] = Array.from(res[i]);
         } else {
             for (let i = 0; i < this.length; ++i)
-                res[i] = Uint8Array.from(res[i]);
+                res[i] = Array.from(res[i]);
         }
         return res;
     }
@@ -110,39 +111,48 @@ class Board extends Array {
     }
 
     findSemiLines(length, threshold) {
-        let res = {
-            [BLACK]: [],
-            [WHITE]: [],
-        };
+        let blacks = [];
+        let whites = [];
 
         const w = this.width;
         const h = this.height;
         for (let dir in DIRECTIONS) {
             let di = DIRECTIONS[dir].i;
             let dj = DIRECTIONS[dir].j;
-            for (let i = 1; i <= h; ++i) {
-                let iEnd = i + di * (length - 1);
-                if (iEnd > h || iEnd < 1)
-                    continue;
-                for (let j = 1; j <= w; ++j) {
-                    let jEnd = j + dj * (length - 1);
-                    if (jEnd > w || jEnd < 1)
-                        continue;
-                    let counts = {[BLACK]: 0, [WHITE]: 0, [BLANK]: 0, [WALL]: 0};
-                    for (let k = 0; k < length; ++k)
-                        counts[this[i + di * k][j + dj * k]]++;
+
+            let iLo = 1, iHi = h;
+            let jLo = 1, jHi = w;
+
+            if (di < 0)
+                iLo = length;
+            else if (di > 0)
+                iHi = h - length + 1;
+            if (dj < 0)
+                jLo = length;
+            else if (dj > 0)
+                jHi = w - length + 1;
+
+            for (let i = iLo; i <= iHi; ++i) {
+                for (let j = jLo; j <= jHi; ++j) {
+                    let counts = [0, 0, 0, 0];
+                    let ii = i, jj = j;
+                    for (let k = 0; k < length; ++k) {
+                        counts[this[ii][jj]]++;
+                        ii += di;
+                        jj += dj;
+                    }
                     if (counts[WALL] == 0) {
-                        if (counts[BLACK] >= threshold && counts[WHITE] == 0) {
-                            res[BLACK].push({i, j, dir, cnt: counts[BLACK]});
-                        } else if (counts[WHITE] >= threshold && counts[BLACK] == 0) {
-                            res[WHITE].push({i, j, dir, cnt: counts[WHITE]});
-                        }
+                        if (counts[BLACK] >= threshold && counts[WHITE] == 0)
+                            blacks.push({i, j, dir, cnt: counts[BLACK]});
+                        else if (counts[WHITE] >= threshold && counts[BLACK] == 0)
+                            whites.push({i, j, dir, cnt: counts[WHITE]});
                     }
                 }
             }
         }
-        return res;
+        return {
+            [BLACK]: blacks,
+            [WHITE]: whites,
+        };
     }
 };
-
-exports.Board = Board;

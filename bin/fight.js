@@ -48,7 +48,7 @@ const aiNames = {
 };
 const ais = {};
 
-for (const color of [C.BLACK, C.WHITE]) {
+for (const color of C.STONE_COLORS) {
     const parts = aiNames[color].split(':');
     const aiInfo = AI_DICT[parts[0]];
     if (!aiInfo) {
@@ -89,7 +89,7 @@ function draw_screen(board) {
         s += 'XX\nXX' + ' '.repeat(w * 4) + 'XX\n';
     }
     s += 'X'.repeat(w * 4 + 4) + '\n';
-    for (let color of [C.BLACK, C.WHITE]) {
+    for (let color of C.STONE_COLORS) {
         const ms = totalTimes[color];
         const mv = moves[color];
         s += `${C.DISPLAY[color]}: ${C.COLOR_DESC[color]} ${aiNames[color]} ${mv} moves ${ms} ms`;
