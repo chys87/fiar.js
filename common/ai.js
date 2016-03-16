@@ -12,10 +12,15 @@ const DIRECTIONS = C.DIRECTIONS;
 const AI = exports.AI = class AI {
     constructor(color) {
         this.color = color;
+        this.enemy = REVERSE_COLOR[color];
     }
 
     run(board) {
-        // Default behavior is random choice
+        return this.obviousMove(board) || this.randomMove(board);
+    }
+
+    randomMove(board) {
+        // Random choice
         const width = board.width;
         const height = board.height;
         let choices = board.findBlanks();
@@ -24,6 +29,37 @@ const AI = exports.AI = class AI {
             return choices[Math.floor(Math.random() * l)];
         else
             return null;
+    }
+
+    obviousMove(board) {
+        const w = board.width;
+        const h = board.height;
+        const color = this.color;
+        const enemy = this.enemy;
+
+        // An empty board. Place in the center
+        if (board.isEmpty()) {
+            let i = (h + 1) >>> 1;
+            let j = (w + 1) >>> 1;
+            for (let di of [0, 1, -1])
+                for (let dj of [0, 1, -1])
+                    if (board[i + di][j + dj] == BLANK)
+                        return [i + di, j + dj];
+        }
+
+        // Almost 5?
+        for (const item of board.findSemiLines(5, 4)[color]) {
+            let i = item.i;
+            let j = item.j;
+            let dir = DIRECTIONS[item.dir];
+            let cnt = item.cnt;
+            for (let k = 0; k < 5; ++k) {
+                if (board[i + dir.i * k][j + dir.j * k] == BLANK)
+                    return [i + dir.i * k, j + dir.j * k];
+            }
+        }
+
+        return null;
     }
 };
 
@@ -65,7 +101,7 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
 
     getScore(board) {
         const color = this.color;
-        const enemy = REVERSE_COLOR[color];
+        const enemy = this.enemy;
 
         let scoreBoard = {
             [BLACK]: {},
@@ -119,40 +155,5 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
         // Factor in [0.2, 1]. The smaller, the more agressive.
         const factor = 1 - this.aggressiveness * .8;
         return scores[color] - scores[enemy] * factor;
-    }
-
-    obviousMove(board) {
-        const w = board.width;
-        const h = board.height;
-        const color = this.color;
-        const enemy = REVERSE_COLOR[color];
-
-        // An empty board. Place in the center
-        if (board.isEmpty()) {
-            let i = (h + 1) >>> 1;
-            let j = (w + 1) >>> 1;
-            if (board[i][j] == BLANK)
-                return [i, j];
-            if (board[i][j + 1] == BLANK)
-                return [i, j + 1];
-            if (board[i + 1][j] == BLANK)
-                return [i + 1, j];
-            if (board[i + 1][j + 1] == BLANK)
-                return [i + 1, j + 1];
-        }
-
-        // Almost 5?
-        for (const item of board.findSemiLines(5, 4)[color]) {
-            let i = item.i;
-            let j = item.j;
-            let dir = DIRECTIONS[item.dir];
-            let cnt = item.cnt;
-            for (let k = 0; k < 5; ++k) {
-                if (board[i + dir.i * k][j + dir.j * k] == BLANK)
-                    return [i + dir.i * k, j + dir.j * k];
-            }
-        }
-
-        return null;
     }
 };
