@@ -1,5 +1,6 @@
 'use strict';
 
+const utils = require('./utils');
 const C = require('./constants');
 const BLANK = C.BLANK;
 const WHITE = C.WHITE;
@@ -21,14 +22,7 @@ const AI = exports.AI = class AI {
 
     randomMove(board) {
         // Random choice
-        const width = board.width;
-        const height = board.height;
-        let choices = board.findBlanks();
-        let l = choices.length;
-        if (l)
-            return choices[Math.floor(Math.random() * l)];
-        else
-            return null;
+        return utils.randomChooseFrom(board.yieldBlanks());
     }
 
     obviousMove(board) {
@@ -48,11 +42,12 @@ const AI = exports.AI = class AI {
         }
 
         // Almost 5?
-        for (const item of board.findSemiLines(5, 4)[color]) {
+        for (const item of board.yieldSemiLines(5, 4)) {
+            if (item.color != color)
+                continue;
             let i = item.i;
             let j = item.j;
             let dir = DIRECTIONS[item.dir];
-            let cnt = item.cnt;
             for (let k = 0; k < 5; ++k) {
                 if (board[i + dir.i * k][j + dir.j * k] == BLANK)
                     return [i + dir.i * k, j + dir.j * k];
@@ -78,22 +73,18 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
         const w = board.width;
         const h = board.height;
 
-        let best_score;
+        let best_score = -Infinity;
         let best_move;
 
-        for (let i = 1; i <= h; ++i) {
-            let nb = board.copy({deepcopyRows: i});
-            for (let j = 1; j <= w; ++j) {
-                if (board[i][j] != BLANK)
-                    continue;
-                nb[i][j] = color;
-                let score = this.getScore(nb);
-                if (best_score === undefined || score > best_score) {
-                    best_score = score;
-                    best_move = [i, j];
-                }
-                nb[i][j] = BLANK;
+        for (let pos of board.yieldBlanks()) {
+            let i = pos[0], j = pos[1];
+            board[i][j] = color;
+            let score = this.getScore(board);
+            if (score > best_score) {
+                best_score = score;
+                best_move = pos;
             }
+            board[i][j] = BLANK;
         }
 
         return best_move || super.run(board);
@@ -104,30 +95,27 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
         const enemy = this.enemy;
 
         let scoreBoard = {
-            [BLACK]: {},
-            [WHITE]: {},
+            [BLACK]: new Map,
+            [WHITE]: new Map,
         };
 
-        const semilines = board.findSemiLines(5, 1);
-
-        for (const clr of STONE_COLORS) {
+        for (const sl of board.yieldSemiLines(5, 1)) {
+            const clr = sl.color;
             let scb = scoreBoard[clr];
-            for (const sl of semilines[clr]) {
-                let i = sl.i;
-                let j = sl.j;
-                let di = DIRECTIONS[sl.dir].i;
-                let dj = DIRECTIONS[sl.dir].j;
-                for (let k = 0; k < 5; ++k) {
-                    if (board[i][j] == BLANK) {
-                        const key = `${i},${j}`;
-                        let stats = scb[key];
-                        if (!stats)
-                            scb[key] = stats = [0, 0, 0, 0, 0, 0];
-                        stats[sl.cnt + (clr == enemy)] += 1;
-                    }
-                    i += di;
-                    j += dj;
+            let i = sl.i;
+            let j = sl.j;
+            let di = DIRECTIONS[sl.dir].i;
+            let dj = DIRECTIONS[sl.dir].j;
+            for (let k = 0; k < 5; ++k) {
+                if (board[i][j] == BLANK) {
+                    const key = `${i},${j}`;
+                    let stats = scb.get(key);
+                    if (!stats)
+                        scb.set(key, stats = [0, 0, 0, 0, 0, 0]);
+                    stats[sl.cnt + (clr == enemy)] += 1;
                 }
+                i += di;
+                j += dj;
             }
         }
 
@@ -138,8 +126,7 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
         for (const clr of STONE_COLORS) {
             const scb = scoreBoard[clr];
             let res = 0;
-            for (const key in scb) {
-                const stats = scb[key];
+            for (const stats of scb.values()) {
                 if (stats[5])
                     res += 1000000;
                 else if (stats[4] >= 2)

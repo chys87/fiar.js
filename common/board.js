@@ -1,11 +1,11 @@
 'use strict';
 
-const constants = require('./constants');
-const BLANK = constants.BLANK;
-const BLACK = constants.BLACK;
-const WHITE = constants.WHITE;
-const DIRECTIONS = constants.DIRECTIONS;
-const WALL = constants.WALL;
+const C = require('./constants');
+const BLANK = C.BLANK;
+const BLACK = C.BLACK;
+const WHITE = C.WHITE;
+const DIRECTIONS = C.DIRECTIONS;
+const WALL = C.WALL;
 
 const Board = exports.Board = class Board extends Array {
     constructor(width, height, options) {
@@ -14,15 +14,16 @@ const Board = exports.Board = class Board extends Array {
         if (options && options.internal)
             return;
 
-        let sentinel_row = new Array(width + 2);
-        sentinel_row.fill(WALL);
-        this[0] = this[height + 1] = sentinel_row;
+        let row = new Array(width + 2);
+        row.fill(WALL);
+        this[0] = this[height + 1] = row;
 
-        for (let i = 1; i <= height; ++i) {
-            let row = this[i] = new Array(width + 2);
-            row.fill(0);
-            row[0] = row[width + 1] = WALL;
-        }
+        row = new Array(width + 2);
+        row.fill(BLANK);
+        row[0] = row[width + 1] = WALL;
+
+        for (let i = 1; i <= height; ++i)
+            this[i] = Array.from(row);
     }
 
     get width() {
@@ -32,127 +33,106 @@ const Board = exports.Board = class Board extends Array {
         return this.length - 2;
     }
 
-    copy(options) {
+    copy() {
         let res = new Board(this.width, this.height, {internal: true});
-        for (let i = 0; i < this.length; ++i)
-            res[i] = this[i];
-        if (options && options.deepcopyRows.length) {
-            for (let i of options.deepcopyRows)
-                res[i] = Array.from(res[i]);
-        } else {
-            for (let i = 0; i < this.length; ++i)
-                res[i] = Array.from(res[i]);
-        }
+
+        let h = this.height;
+        res[0] = res[h + 1] = this[0];
+
+        for (let i = 1; i <= h; ++i)
+            res[i] = Array.from(this[i]);
+
         return res;
     }
 
-    findBlanks() {
-        let blanks = [];
-
-        const width = this.width;
-        const height = this.height;
-        for (let i = 1; i <= height; ++i)
-            for (let j = 1; j <= width; ++j)
-                if (this[i][j] == BLANK)
-                    blanks.push([i, j]);
-
-        return blanks;
+    *yieldBlanks() {
+        for (let i = 1, h = this.height; i <= h; ++i) {
+            const row = this[i];
+            let j = 0;
+            while ((j = row.indexOf(BLANK, j + 1)) >= 0)
+                yield [i, j];
+        }
     }
 
-    countColor(color) {
-        let cnt = 0;
-        for (let row of this) {
-            for (let cell of row)
-                cnt += (cell == color);
-        }
-        return cnt;
+    hasBlanks() {
+        return !this.yieldBlanks().next().done;
     }
 
     isEmpty() {
-        return this.every(row => row.every(cell => cell != BLACK && cell != WHITE));
+        for (const row of this)
+            if (row.indexOf(BLACK) >= 0 || row.indexOf(WHITE) >= 0)
+                return false;
+        return true;
     }
 
-    findLines(min_cnt) {
-        if (!min_cnt)
-            min_cnt = 3;
-
-        let blacks = [];
-        let whites = [];
-        const width = this.width;
-        const height = this.height;
-        for (let i = 1; i <= height; ++i) {
-            for (let j = 1; j <= width; ++j) {
-                const cur = this[i][j];
-                if (cur != WHITE && cur != BLACK)
-                    continue;
-                for (let dir in DIRECTIONS) {
-                    let deltai = DIRECTIONS[dir].i;
-                    let deltaj = DIRECTIONS[dir].j;
-                    let ii = i, jj = j;
-                    let cnt = 0;
-                    do {
-                        ii += deltai;
-                        jj += deltaj;
-                        ++cnt;
-                    } while (this[ii][jj] == cur);
-                    if (cnt >= min_cnt) {
-                        if (cur == BLACK)
-                            blacks.push({i, j, dir, cnt});
-                        else
-                            whites.push({i, j, dir, cnt});
-                    }
-                }
-            }
-        }
-        return {
-            [BLACK]: blacks,
-            [WHITE]: whites,
-        };
-    }
-
-    findSemiLines(length, threshold) {
-        let blacks = [];
-        let whites = [];
-
+    *yieldVirtualLines() {
         const w = this.width;
         const h = this.height;
-        for (let dir in DIRECTIONS) {
+
+        // top
+        for (let j = 1; j <= w; ++j) {
+            yield {i: 1, j, dir: C.DOWN, l: h};
+            yield {i: 1, j, dir: C.RIGHTDOWN, l: Math.min(w - j + 1, h)};
+            yield {i: 1, j, dir: C.LEFTDOWN, l: Math.min(j, h)};
+        }
+
+        // RIGHT
+        for (let i = 1; i <= h; ++i)
+            yield {i, j: 1, dir: C.RIGHT, l: w};
+
+        // LEFTDOWN, RIGHTDOWN from right/left
+        for (let i = 2; i <= h; ++i) {
+            yield {i, j: 1, dir: C.RIGHTDOWN, l: Math.min(w, h - i + 1)};
+            yield {i, j: w, dir: C.LEFTDOWN, l: Math.min(w, h - i + 1)};
+        }
+    }
+
+    *yieldLines(min_cnt) {
+        yield* this.yieldSemiLines(min_cnt, min_cnt);
+    }
+
+    *yieldSemiLines(length, threshold) {
+        const w = this.width;
+        const h = this.height;
+
+        for (const item of this.yieldVirtualLines()) {
+            let l = item.l;
+            if (l < length)
+                continue;
+
+            let i = item.i;
+            let j = item.j;
+            let dir = item.dir;
             let di = DIRECTIONS[dir].i;
             let dj = DIRECTIONS[dir].j;
 
-            let iLo = 1, iHi = h;
-            let jLo = 1, jHi = w;
+            let ii = i;
+            let jj = j;
 
-            if (di < 0)
-                iLo = length;
-            else if (di > 0)
-                iHi = h - length + 1;
-            if (dj < 0)
-                jLo = length;
-            else if (dj > 0)
-                jHi = w - length + 1;
+            let counts = [0, 0, 0, 0];
 
-            for (let i = iLo; i <= iHi; ++i) {
-                for (let j = jLo; j <= jHi; ++j) {
-                    let counts = [0, 0, 0, 0];
-                    let ii = i, jj = j;
-                    for (let k = 0; k < length; ++k) {
-                        counts[this[ii][jj]]++;
-                        ii += di;
-                        jj += dj;
-                    }
-                    if (counts[WALL] == 0) {
-                        if (counts[BLACK] >= threshold && counts[WHITE] == 0)
-                            blacks.push({i, j, dir, cnt: counts[BLACK]});
-                        else if (counts[WHITE] >= threshold && counts[BLACK] == 0)
-                            whites.push({i, j, dir, cnt: counts[WHITE]});
-                    }
+            for (let k = 0; k < length - 1; ++k) {
+                counts[this[ii][jj]]++;
+                ii += di;
+                jj += dj;
+            }
+
+            for (let k = length - 1; k < l; ++k) {
+                counts[this[ii][jj]]++;
+                ii += di;
+                jj += dj;
+
+                if (counts[WALL] == 0) {
+                    if (counts[BLACK] >= threshold && counts[WHITE] == 0)
+                        yield {i, j, dir, cnt: counts[BLACK], color: BLACK};
+                    else if (counts[WHITE] >= threshold && counts[BLACK] == 0)
+                        yield {i, j, dir, cnt: counts[WHITE], color: WHITE};
                 }
+
+                counts[this[i][j]]--;
+                i += di;
+                j += dj;
             }
         }
-        return {
-            [BLACK]: blacks,
-            [WHITE]: whites,
-        };
     }
 };

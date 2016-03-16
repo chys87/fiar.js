@@ -65,8 +65,8 @@ let moves = {[C.BLACK]: 0, [C.WHITE]: 0};
 let totalTimes = {[C.BLACK]: 0, [C.WHITE]: 0};
 
 if (ARGS.holes) {
-    const holes = ARGS.holes;
-    let blanks = board.findBlanks();
+    const holes = Math.min(ARGS.holes, ARGS.w * ARGS.h);
+    let blanks = Array.from(board.yieldBlanks());
     for (let i = 0; i < holes; ++i) {
         var k = Math.floor(Math.random() * blanks.length);
         board[blanks[k][0]][blanks[k][1]] = C.WALL;
@@ -108,7 +108,7 @@ function make_turn() {
     let action;
     let beginTime = Date.now();
     try {
-        action = ais[turn].run(board);
+        action = ais[turn].run(board.copy());
     } catch (e) {
         console.error(`${C.COLOR_DESC[turn]} threw an exception.`);
         throw e;
@@ -130,16 +130,13 @@ function make_turn() {
     board[i][j] = turn;
     draw_screen(board);
 
-    let lines = board.findLines(5);
-    if (lines[C.BLACK].length) {
-        console.log('BLACK wins!!');
-        return;
-    } else if (lines[C.WHITE].length) {
-        console.log('WHITE wins!!');
+    let first = board.yieldLines(5).next();
+    if (!first.done) {
+        console.log(`${C.COLOR_DESC[first.value.color]} wins!!`);
         return;
     }
 
-    if (board.findBlanks().length == 0) {
+    if (!board.hasBlanks()) {
         console.log('No more legal moves. WHITE wins!!');
         return;
     }
