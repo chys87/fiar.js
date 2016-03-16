@@ -122,7 +122,7 @@ function make_turn() {
     }
     const i = action[0];
     const j = action[1];
-    if (!(i >= 1 && i <= board.width) || !(j >= 1 && j <= board.height) || board[i][j] != C.BLANK) {
+    if (!(i >= 1 && i <= board.height) || !(j >= 1 && j <= board.width) || board[i][j] != C.BLANK) {
         console.error(`${C.COLOR_DESC[turn]} attempts to make an illegal move.`);
         return;
     }
