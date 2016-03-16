@@ -94,13 +94,13 @@ function make_turn() {
     }
     if (!action) {
         console.log(`${constants.COLOR_DESC[turn]} surrenders.`);
-        process.exit();
+        return;
     }
     const i = action[0];
     const j = action[1];
     if (!(i >= 1 && i <= board.width) || !(j >= 1 && j <= board.height) || board[i][j] != constants.BLANK) {
         console.error(`${constants.COLOR_DESC[turn]} attempts to make an illegal move.`);
-        process.exit();
+        return;
     }
 
     board[i][j] = turn;
@@ -109,15 +109,15 @@ function make_turn() {
     let lines = board.findLines(5);
     if (lines.blacks.length) {
         console.log('BLACK wins!!');
-        process.exit();
+        return;
     } else if (lines.whites.length) {
         console.log('WHITE wins!!');
-        process.exit();
+        return;
     }
 
     if (board.findBlanks().length == 0) {
         console.log('No more legal moves. WHITE wins!!');
-        process.exit();
+        return;
     }
 
     turn = constants.REVERSE_COLOR[turn];
