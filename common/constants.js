@@ -23,11 +23,12 @@ const REVERSE_COLOR = {
     [BLACK]: WHITE,
 };
 
-const RIGHT = 0, DOWN = 1, RIGHTDOWN = 2;
+const RIGHT = 0, DOWN = 1, RIGHTDOWN = 2, LEFTDOWN = 3;
 const DIRECTIONS = {
-    [RIGHT]: [0, 1],
-    [DOWN]: [1, 0],
-    [RIGHTDOWN]: [1, 1],
+    [RIGHT]: {i: 0, j: 1},
+    [DOWN]: {i: 1, j: 0},
+    [RIGHTDOWN]: {i: 1, j: 1},
+    [LEFTDOWN]: {i: 1, j: -1},
 };
 
 Object.assign(exports, {

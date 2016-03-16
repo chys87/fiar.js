@@ -5,18 +5,19 @@
 const yargs = require('yargs');
 
 const Board = require('../common/board').Board;
-const constants = require('../common/constants');
+const C = require('../common/constants');
 
 const DEFAULT_WIDTH = 15;
 const DEFAULT_HEIGHT = 15;
 
 const AI_DICT = {
     'random': ['../common/ai', 'AI'],
+    'donkey': ['../common/ai', 'DonkeyAI'],
 };
 const DEFAULT_AI = 'random';
 
 const ARGS = yargs
-    .usage(`$0 [options...] [BLACK_AI [WHITE_AI]]
+    .usage(`$0 [options...] [BLACK_AI[:OPTIONS] [WHITE_AI[:OPTIONS]]]
 
 Available AIs: ${Object.keys(AI_DICT)}`)
     .option('width', {
@@ -32,34 +33,32 @@ Available AIs: ${Object.keys(AI_DICT)}`)
     .option('sleep', {
         alias: 's',
         describe: 'Sleep time between moves',
-        default: 1000,
+        default: 100,
     })
     .help('help')
     .argv;
 
-const black_ai_name = ARGS._[0] || DEFAULT_AI;
-const white_ai_name = ARGS._[1] || DEFAULT_AI;
-const black_ai_info = AI_DICT[black_ai_name];
-const white_ai_info = AI_DICT[white_ai_name];
-
-if (!black_ai_info) {
-    console.error(`Unknown AI ${black_ai_name}`);
-    process.exit(1);
-}
-if (!white_ai_info) {
-    console.error(`Unknown AI ${white_ai_name}`);
-    process.exit(1);
-}
-
-let black_ai_cls = require(black_ai_info[0])[black_ai_info[1]];
-let white_ai_cls = require(white_ai_info[0])[white_ai_info[1]];
-
-let ais = {
-    [constants.BLACK]: new black_ai_cls(constants.BLACK),
-    [constants.WHITE]: new white_ai_cls(constants.WHITE),
+const aiNames = {
+    [C.BLACK]: ARGS._[0] || DEFAULT_AI,
+    [C.WHITE]: ARGS._[1] || DEFAULT_AI,
 };
+const ais = {};
+
+for (const color of [C.BLACK, C.WHITE]) {
+    const parts = aiNames[color].split(':');
+    const aiInfo = AI_DICT[parts[0]];
+    if (!aiInfo) {
+        console.error(`Unknown AI ${aiNames[color]}`);
+        process.exit(1);
+    }
+    const cls = require(aiInfo[0])[aiInfo[1]];
+    let ai = new cls(color, ...parts.slice(1));
+    ais[color] = ai;
+}
 
 let board = new Board(ARGS.w, ARGS.h);
+let moves = {[C.BLACK]: 0, [C.WHITE]: 0};
+let totalTimes = {[C.BLACK]: 0, [C.WHITE]: 0};
 
 const write = process.stdout.write.bind(process.stdout);
 
@@ -71,35 +70,45 @@ function draw_screen(board) {
     for (let i = 1; i <= h; ++i) {
         s += 'XX';
         for (let j = 1; j <= w; ++j)
-            s += ' ' + constants.DISPLAY[board[i][j]] + ' ';
+            s += ' ' + C.DISPLAY[board[i][j]] + ' ';
         s += 'XX\nXX' + ' '.repeat(w * 4) + 'XX\n';
     }
     s += 'X'.repeat(w * 4 + 4) + '\n';
-    s += `${constants.DISPLAY[constants.BLACK]}: BLACK\n`;
-    s += `${constants.DISPLAY[constants.WHITE]}: WHITE\n`;
+    for (let color of [C.BLACK, C.WHITE]) {
+        const ms = totalTimes[color];
+        const mv = moves[color];
+        s += `${C.DISPLAY[color]}: ${C.COLOR_DESC[color]} ${aiNames[color]} ${mv} moves ${ms} ms`;
+        if (mv)
+            s += ` ${ms/mv} ms/move`;
+        s += '\x1b[K\n';
+    }
     write(s);
 }
 
 write('\x1b[3J\x1b[H\x1b[2J'); // Clear screen
 
-let turn = constants.BLACK;
+let turn = C.BLACK;
 
 function make_turn() {
     let action;
+    let beginTime = Date.now();
     try {
         action = ais[turn].run(board);
     } catch (e) {
-        console.error(`${constants.COLOR_DESC[turn]} threw an exception.`);
+        console.error(`${C.COLOR_DESC[turn]} threw an exception.`);
         throw e;
     }
+    let usedTime = Date.now() - beginTime;
+    moves[turn]++;
+    totalTimes[turn] += usedTime;
     if (!action) {
-        console.log(`${constants.COLOR_DESC[turn]} surrenders.`);
+        console.log(`${C.COLOR_DESC[turn]} surrenders.`);
         return;
     }
     const i = action[0];
     const j = action[1];
-    if (!(i >= 1 && i <= board.width) || !(j >= 1 && j <= board.height) || board[i][j] != constants.BLANK) {
-        console.error(`${constants.COLOR_DESC[turn]} attempts to make an illegal move.`);
+    if (!(i >= 1 && i <= board.width) || !(j >= 1 && j <= board.height) || board[i][j] != C.BLANK) {
+        console.error(`${C.COLOR_DESC[turn]} attempts to make an illegal move.`);
         return;
     }
 
@@ -107,10 +116,10 @@ function make_turn() {
     draw_screen(board);
 
     let lines = board.findLines(5);
-    if (lines.blacks.length) {
+    if (lines[C.BLACK].length) {
         console.log('BLACK wins!!');
         return;
-    } else if (lines.whites.length) {
+    } else if (lines[C.WHITE].length) {
         console.log('WHITE wins!!');
         return;
     }
@@ -120,7 +129,7 @@ function make_turn() {
         return;
     }
 
-    turn = constants.REVERSE_COLOR[turn];
+    turn = C.REVERSE_COLOR[turn];
     setTimeout(make_turn, ARGS.sleep);
 }
 
