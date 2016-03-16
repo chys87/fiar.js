@@ -7,18 +7,18 @@ const WHITE = constants.WHITE;
 const DIRECTIONS = constants.DIRECTIONS;
 const WALL = constants.WALL;
 
-class Board {
+class Board extends Array {
     constructor(width, height) {
+        super(height + 2);
+
         let sentinel_row = new Uint8Array(width + 2);
         sentinel_row.fill(WALL);
+        this[0] = this[height + 1] = sentinel_row;
 
-        Array.prototype.push.call(this, sentinel_row);
-        for (let i = 0; i < height; ++i) {
-            let row = new Uint8Array(width + 2);
+        for (let i = 1; i <= height; ++i) {
+            let row = this[i] = new Uint8Array(width + 2);
             row[0] = row[width + 1] = WALL;
-            Array.prototype.push.call(this, row);
         }
-        Array.prototype.push.call(this, sentinel_row);
     }
 
     get width() {
