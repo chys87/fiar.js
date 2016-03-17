@@ -65,37 +65,55 @@ const Board = exports.Board = class Board extends Array {
         return true;
     }
 
-    *yieldVirtualLines() {
+    getVirtualLines() {
+        if (this._virtualLinesCache)
+            return this._virtualLinesCache;
+
         const w = this.width;
         const h = this.height;
 
+        if (!Board._virtualLinesCache)
+            Board._virtualLinesCache = new Map;
+
+        let key = `${w}-${h}`;
+        let res = Board._virtualLinesCache.get(key);
+        if (res) {
+            this._virtualLinesCache = res;
+            return res;
+        }
+
+        res = [];
+
         // top
         for (let j = 1; j <= w; ++j) {
-            yield {i: 1, j, dir: C.DOWN, l: h};
-            yield {i: 1, j, dir: C.RIGHTDOWN, l: Math.min(w - j + 1, h)};
-            yield {i: 1, j, dir: C.LEFTDOWN, l: Math.min(j, h)};
+            res.push({i: 1, j, dir: C.DOWN, l: h});
+            res.push({i: 1, j, dir: C.RIGHTDOWN, l: Math.min(w - j + 1, h)});
+            res.push({i: 1, j, dir: C.LEFTDOWN, l: Math.min(j, h)});
         }
 
         // RIGHT
         for (let i = 1; i <= h; ++i)
-            yield {i, j: 1, dir: C.RIGHT, l: w};
+            res.push({i, j: 1, dir: C.RIGHT, l: w});
 
         // LEFTDOWN, RIGHTDOWN from right/left
         for (let i = 2; i <= h; ++i) {
-            yield {i, j: 1, dir: C.RIGHTDOWN, l: Math.min(w, h - i + 1)};
-            yield {i, j: w, dir: C.LEFTDOWN, l: Math.min(w, h - i + 1)};
+            res.push({i, j: 1, dir: C.RIGHTDOWN, l: Math.min(w, h - i + 1)});
+            res.push({i, j: w, dir: C.LEFTDOWN, l: Math.min(w, h - i + 1)});
         }
+
+        this._virtualLinesCache = Board._virtualLinesCache[key] = res;
+        return res;
     }
 
-    *yieldLines(min_cnt) {
-        yield* this.yieldSemiLines(min_cnt, min_cnt);
+    yieldLines(min_cnt) {
+        return this.yieldSemiLines(min_cnt, min_cnt);
     }
 
     *yieldSemiLines(length, threshold) {
         const w = this.width;
         const h = this.height;
 
-        for (const item of this.yieldVirtualLines()) {
+        for (const item of this.getVirtualLines()) {
             let l = item.l;
             if (l < length)
                 continue;
