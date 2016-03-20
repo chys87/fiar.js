@@ -1,8 +1,8 @@
 'use strict';
 
-const BLANK = 0;
-const WHITE = 1;
-const BLACK = 2;
+const WHITE = 0;
+const BLACK = 1;
+const BLANK = 2;
 const WALL = 3;
 const STONE_COLORS = [BLACK, WHITE];
 const DISPLAY = {
