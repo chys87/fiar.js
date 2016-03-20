@@ -13,6 +13,7 @@ const DEFAULT_HEIGHT = 15;
 const AI_DICT = {
     'random': ['../common/ai', 'AI'],
     'donkey': ['../common/ai', 'DonkeyAI'],
+    'dolphin': ['../dolphin/main', 'dolphinAI'],
 };
 const DEFAULT_AI = 'random';
 

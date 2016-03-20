@@ -72,9 +72,6 @@ const Board = exports.Board = class Board extends Array {
         const w = this.width;
         const h = this.height;
 
-        if (!Board._virtualLinesCache)
-            Board._virtualLinesCache = new Map;
-
         let key = `${w}-${h}`;
         let res = Board._virtualLinesCache.get(key);
         if (res) {
@@ -101,8 +98,55 @@ const Board = exports.Board = class Board extends Array {
             res.push({i, j: w, dir: C.LEFTDOWN, l: Math.min(w, h - i + 1)});
         }
 
-        this._virtualLinesCache = Board._virtualLinesCache[key] = res;
+        Board._virtualLinesCache.set(key, res);
+        this._virtualLinesCache = res;
         return res;
+    }
+
+    getVirtualLinesFor(i, j, extendLength) {
+        if (!extendLength)
+            extendLength = 5;
+
+        const key = `${i}-${j}-${extendLength}`;
+        let res = Board._getVirtualLinesForCache.get(key);
+        if (res)
+            return res;
+
+        const w = this.width;
+        const h = this.height;
+
+        const extendLeftward = Math.min(extendLength - 1, j - 1);
+        const extendRightward = Math.min(extendLength - 1, w - j);
+        const extendTopward = Math.min(extendLength - 1, i - 1);
+        const extendDownward = Math.min(extendLength - 1, h - i);
+        const extendTopLeftward = Math.min(extendTopward, extendLeftward);
+        const extendRightDownward = Math.min(extendRightward, extendDownward);
+        const extendTopRightward = Math.min(extendTopward, extendRightward);
+        const extendLeftDownward = Math.min(extendDownward, extendLeftward);
+
+        res = [
+            // RIGHT
+            {i, j: j - extendLeftward, dir: C.RIGHT, l: extendLeftward + extendRightward + 1},
+            // DOWN
+            {i: i - extendTopward, j, dir: C.DOWN, l: extendTopward + extendDownward + 1},
+            // RIGHTDOWN
+            {i: i - extendTopLeftward, j: j - extendTopLeftward, dir: C.RIGHTDOWN, l: extendTopLeftward + extendRightDownward + 1},
+            // LEFTDOWN
+            {i: i - extendTopRightward, j: j + extendTopRightward, dir: C.LEFTDOWN, l: extendTopRightward + extendLeftDownward + 1},
+        ];
+        Board._getVirtualLinesForCache.set(key, res);
+        return res;
+    }
+
+    static *yieldPositionsFromLine(i, j, dir, l) {
+        const vd = C.DIRECTIONS[dir];
+        const di = vd.i;
+        const dj = vd.j;
+        for (let k = 0; k < l; ++k) {
+            yield [i, j];
+            i += di;
+            j += dj;
+        }
     }
 
     yieldLines(min_cnt) {
@@ -154,3 +198,6 @@ const Board = exports.Board = class Board extends Array {
         }
     }
 };
+
+Board._virtualLinesCache = new Map;
+Board._getVirtualLinesForCache = new Map;
