@@ -25,6 +25,21 @@ const AI = exports.AI = class AI {
         return utils.randomChooseFrom(board.yieldBlanks());
     }
 
+    static victoryMove(board, color) {
+        for (const item of board.yieldSemiLines(5, 4)) {
+            if (item.color != color)
+                continue;
+            let i = item.i;
+            let j = item.j;
+            let dir = DIRECTIONS[item.dir];
+            for (let k = 0; k < 5; ++k) {
+                if (board[i + dir.i * k][j + dir.j * k] == BLANK)
+                    return [i + dir.i * k, j + dir.j * k];
+            }
+        }
+        return null;
+    }
+
     obviousMove(board) {
         const w = board.width;
         const h = board.height;
@@ -41,20 +56,7 @@ const AI = exports.AI = class AI {
                         return [i + di, j + dj];
         }
 
-        // Almost 5?
-        for (const item of board.yieldSemiLines(5, 4)) {
-            if (item.color != color)
-                continue;
-            let i = item.i;
-            let j = item.j;
-            let dir = DIRECTIONS[item.dir];
-            for (let k = 0; k < 5; ++k) {
-                if (board[i + dir.i * k][j + dir.j * k] == BLANK)
-                    return [i + dir.i * k, j + dir.j * k];
-            }
-        }
-
-        return null;
+        return AI.victoryMove(board, color);
     }
 };
 

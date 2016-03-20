@@ -29,46 +29,48 @@ const Scorer = exports.Scorer = class Scorer {
         this.initializeScores(board);
     }
 
-    scoreFor(color, nextMove) {
+    scoreForNextMove(board, color) {
+        let bestScore = -Infinity;
+        let bestMove;
+
+        for (let pos of board.yieldBlanks()) {
+            let i = pos[0], j = pos[1];
+
+            this.changeColor(board, i, j, color);
+            let score = this.scoreForMoved(color);
+            this.changeColor(board, i, j, BLANK);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = pos;
+            }
+        }
+
+        if (bestMove)
+            return {i: bestMove[0], j: bestMove[1], score: bestScore};
+        else
+            return null;
+    }
+
+    scoreForMoved(color) {
         const w = this.w;
         const h = this.h;
         const scb = this.scoreBoard[color];
-        let res = 0;
+        let res = 1;
 
-        if (nextMove) {
-
-            for (let i = 1; i <= h; ++i) {
-                const scbRow = scb[i];
-                for (let j = 1; j <= w; ++j) {
-                    const stats = scbRow[j];
-                    if (stats[4] || stats[5])
-                        res += 1000000;
-                    else if (stats[3] >= 2)
-                        res += 1000000 / 2;
-                    else if (stats[3] + stats[2] >= 2)
-                        res += 50000;
-                    else
-                        res += (stats[3] + stats[2] / 3) * 100 + stats[1] * 2;
-                }
+        for (let i = 1; i <= h; ++i) {
+            const scbRow = scb[i];
+            for (let j = 1; j <= w; ++j) {
+                const stats = scbRow[j];
+                if (stats[5])
+                    res += 1000000;
+                else if (stats[4] >= 2)
+                    res += 1000000;
+                else if (stats[4] + stats[3] >= 2)
+                    res += 50000;
+                else
+                    res += (stats[4] * 2 + stats[3]) * 100 + stats[2] * 8 + stats[1];
             }
-
-        } else {
-
-            for (let i = 1; i <= h; ++i) {
-                const scbRow = scb[i];
-                for (let j = 1; j <= w; ++j) {
-                    const stats = scbRow[j];
-                    if (stats[5])
-                        res += 1000000;
-                    else if (stats[4] >= 2)
-                        res += 1000000;
-                    else if (stats[4] + stats[3] >= 2)
-                        res += 50000;
-                    else
-                        res += (stats[4] * 2 + stats[3]) * 100 + stats[2] * 8 + stats[1];
-                }
-            }
-
         }
 
         return res;

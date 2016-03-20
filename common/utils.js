@@ -11,3 +11,82 @@ const randomChooseFrom = exports.randomChooseFrom = series => {
     }
     return res;
 };
+
+const Heap = exports.Heap = class Heap extends Array {
+    constructor(maxSize) {
+        super(maxSize);
+        this._size = 0;
+    }
+
+    get size() {
+        return this._size;
+    }
+
+    push(elem) {
+        if (this._size < this.length) {
+            let j = this._size++;
+            this[j] = elem;
+            this._heapUp(j);
+        } else if (this.cmp(this[0], elem)) {
+            this[0] = elem;
+            this._heapDown(0);
+        }
+    }
+
+    pop() {
+        let res = this[0];
+        let j = --this._size;
+        if (j) {
+            this[0] = this[j];
+            this._heapDown(0);
+        }
+    }
+
+    cmp(a, b) {
+        // Override this function
+        return a < b;
+    }
+
+    _heapDown(i) {
+        const size = this._size;
+        for (;;) {
+            let left = i * 2 + 1;
+            let right = left + 1;
+            if (left >= size) {
+                break;
+            } else if (right == size || this.cmp(this[left], this[right])) {
+                if (this.cmp(this[left], this[i])) {
+                    let tmp = this[i];
+                    this[i] = this[left];
+                    this[left] = tmp;
+                    i = left;
+                } else {
+                    break;
+                }
+            } else if (this.cmp(this[right], this[i])) {
+                let tmp = this[i];
+                this[i] = this[right];
+                this[right] = tmp;
+                i = right;
+            } else {
+                break;
+            }
+        }
+        return i;
+    }
+
+    _heapUp(i) {
+        while (i) {
+            let j = (i - 1) >>> 1;
+            if (this.cmp(this[i], this[j])) {
+                let tmp = this[i];
+                this[i] = this[j];
+                this[j] = tmp;
+                i = j;
+            } else {
+                break;
+            }
+        }
+        return i;
+    }
+};
