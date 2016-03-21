@@ -2,6 +2,7 @@
 
 const Board = require('../common/board').Board;
 const C = require('../common/constants');
+const utils = require('../common/utils');
 const BLANK = C.BLANK;
 const BLACK = C.BLACK;
 const WHITE = C.WHITE;
@@ -24,7 +25,7 @@ const Scorer = exports.Scorer = class Scorer {
             }
         }
 
-        this._changeColorRefreshPositionsCache = new Map;
+        this._rowScoreCache = [new Array(h + 1), new Array(h + 1)];
 
         this.initializeScores(board);
     }
@@ -37,12 +38,14 @@ const Scorer = exports.Scorer = class Scorer {
             let i = pos[0], j = pos[1];
 
             this.changeColor(board, i, j, color);
-            let score = this.scoreForMoved(color);
+            let score = this.scoreForMoved(board, color);
             this.changeColor(board, i, j, BLANK);
 
             if (score > bestScore) {
                 bestScore = score;
                 bestMove = pos;
+                if (score == Infinity)
+                    break;
             }
         }
 
@@ -52,27 +55,42 @@ const Scorer = exports.Scorer = class Scorer {
             return null;
     }
 
-    scoreForMoved(color) {
+    scoreForMoved(board, color) {
         const w = this.w;
         const h = this.h;
         const scb = this.scoreBoard[color];
-        let res = 1;
+        let res = 0;
 
         for (let i = 1; i <= h; ++i) {
-            const scbRow = scb[i];
-            for (let j = 1; j <= w; ++j) {
-                const stats = scbRow[j];
-                if (stats[5])
-                    res += 1000000;
-                else if (stats[4] >= 2)
-                    res += 1000000;
-                else if (stats[4] + stats[3] >= 2)
-                    res += 50000;
-                else
-                    res += (stats[4] * 2 + stats[3]) * 100 + stats[2] * 8 + stats[1];
-            }
+            res += this.rowScoreForMoved(board, color, i);
+            if (res == Infinity)
+                break;
         }
 
+        return res;
+    }
+
+    rowScoreForMoved(board, color, i) {
+        let res = this._rowScoreCache[color][i];
+        if (res !== undefined)
+            return res;
+
+        res = 0;
+        const row = board[i];
+        const scbRow = this.scoreBoard[color][i];
+        for (let j = 1, w = this.w; j <= w; ++j) {
+            const stats = scbRow[j];
+            if (stats[5]) {
+                res = Infinity;
+                break;
+            } else if (stats[4] >= 2)
+                res += 1000000;
+            else if (stats[4] + stats[3] >= 2)
+                res += 50000;
+            else
+                res += stats[4] * 20000 + stats[3] * 100 + stats[2] * 8 + stats[1];
+        }
+        this._rowScoreCache[color][i] = res;
         return res;
     }
 
@@ -113,6 +131,8 @@ const Scorer = exports.Scorer = class Scorer {
             jj += dj;
         }
 
+        let changedColor = [false, false];
+
         for (let k = 4; k < l; ++k) {
             stats[board[ii][jj]]++;
             ii += di;
@@ -120,12 +140,12 @@ const Scorer = exports.Scorer = class Scorer {
 
             if (stats[WALL] == 0) {
                 for (const color of STONE_COLORS) {
-                    if (stats[REVERSE_COLOR[color]] == 0 && stats[BLANK]) {
+                    if (stats[REVERSE_COLOR[color]] == 0) {
+                        changedColor[color] = true;
                         let scbColor = this.scoreBoard[color];
                         const count = stats[color];
                         for (let ki = i, kj = j, k = 0; k < 5; ++k, ki += di, kj += dj)
-                            if (board[ki][kj] == BLANK)
-                                scbColor[ki][kj][count] += add;
+                            scbColor[ki][kj][count] += add;
                     }
                 }
             }
@@ -133,6 +153,18 @@ const Scorer = exports.Scorer = class Scorer {
             stats[board[i][j]]--;
             i += di;
             j += dj;
+        }
+
+        // Invalidate cache
+        for (const color of STONE_COLORS) {
+            if (changedColor[color]) {
+                if (di == 0)
+                    this._rowScoreCache[color][vl.i] = undefined;
+                else if (di == 1)
+                    this._rowScoreCache[color].fill(undefined, vl.i, vl.i + l);
+                else
+                    throw RangeError(`Bad di value: ${di}`);
+            }
         }
     }
 };

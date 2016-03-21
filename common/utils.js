@@ -1,5 +1,7 @@
 'use strict';
 
+const util = require('util');
+
 const randomChooseFrom = exports.randomChooseFrom = series => {
     // Choose a random item from a list, whose length may not be known in advance
     let res = null;
@@ -10,6 +12,21 @@ const randomChooseFrom = exports.randomChooseFrom = series => {
             res = item;
     }
     return res;
+};
+
+const deepCopy = exports.deepCopy = function deepCopy(obj) {
+    if (util.isArray(obj)) {
+        obj = obj.slice();
+        for (let i = 0, l = obj.length; i < l; ++i)
+            obj[i] = deepCopy(obj[i]);
+    } else if (util.isObject(obj)) {
+        let res = {};
+        for (let k in obj)
+            if (obj.hasOwnProperty(k))
+                res[k] = deepCopy(obj[k]);
+        obj = res;
+    }
+    return obj;
 };
 
 const Heap = exports.Heap = class Heap extends Array {
