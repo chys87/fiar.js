@@ -3,6 +3,7 @@
 const Board = require('../common/board').Board;
 const C = require('../common/constants');
 const utils = require('../common/utils');
+const AttrMinHeap = utils.AttrMinHeap;
 const BLANK = C.BLANK;
 const BLACK = C.BLACK;
 const WHITE = C.WHITE;
@@ -34,8 +35,8 @@ const Scorer = exports.Scorer = class Scorer {
         let bestScore = -Infinity;
         let bestMove;
 
-        for (let pos of board.yieldBlanks()) {
-            let i = pos[0], j = pos[1];
+        for (const item of this.guessLikelyMoves(board, color, Math.max(this.w, this.h), 0.01)) {
+            let i = item.i, j = item.j;
 
             this.changeColor(board, i, j, color);
             let score = this.scoreForMoved(board, color);
@@ -43,7 +44,7 @@ const Scorer = exports.Scorer = class Scorer {
 
             if (score > bestScore) {
                 bestScore = score;
-                bestMove = pos;
+                bestMove = [i, j];
                 if (score == Infinity)
                     break;
             }
@@ -92,6 +93,42 @@ const Scorer = exports.Scorer = class Scorer {
         }
         this._rowScoreCache[color][i] = res;
         return res;
+    }
+
+    guessLikelyMoves(board, color, maxReturns, cutThreshold) {
+        const w = this.w;
+        const h = this.h;
+
+        if (!maxReturns || maxReturns < 1)
+            maxReturns = 1;
+        let heap = new AttrMinHeap(maxReturns, 'weight');
+
+        const scb0 = this.scoreBoard[0];
+        const scb1 = this.scoreBoard[1];
+
+        for (let pos of board.yieldBlanks()) {
+            let i = pos[0], j = pos[1];
+            let st0 = scb0[i][j];
+            let st1 = scb1[i][j];
+            let weight =
+                        st0[5] * 1000000 + st0[4] * 20000 + st0[3] * 100 + st0[2] * 8 + st0[1] +
+                        st1[5] * 1000000 + st1[4] * 20000 + st1[3] * 100 + st1[2] * 8 + st1[1];
+            heap.push({i, j, weight});
+        }
+
+        let array = heap.slice(0, heap.size);
+        array.sort((a, b) => b.weight - a.weight);
+
+        if (array.length) {
+            let threshold = array[0].weight * cutThreshold;
+            let k = array.length;
+            while (k && array[k - 1].weight < threshold)
+                --k;
+            if (k < array.length)
+                array.length = k;
+        }
+
+        return array;
     }
 
     initializeScores(board) {

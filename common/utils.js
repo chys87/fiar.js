@@ -107,3 +107,27 @@ const Heap = exports.Heap = class Heap extends Array {
         return i;
     }
 };
+
+const AttrMinHeap = exports.AttrMinHeap = class AttrMinHeap extends Heap {
+    constructor(maxSize, key) {
+        super(maxSize);
+        this._key = key;
+    }
+
+    cmp(a, b) {
+        const key = this._key;
+        return a[key] < b[key];
+    }
+}
+
+const AttrMaxHeap = exports.AttrMaxHeap = class AttrMaxHeap extends Heap {
+    constructor(maxSize, key) {
+        super(maxSize);
+        this._key = key;
+    }
+
+    cmp(a, b) {
+        const key = this._key;
+        return a[key] > b[key];
+    }
+}
