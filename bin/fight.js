@@ -2,6 +2,7 @@
 
 'use strict';
 
+const fs = require('fs');
 const yargs = require('yargs');
 
 const Board = require('../common/board').Board;
@@ -40,6 +41,12 @@ Available AIs: ${Object.keys(AI_DICT)}`)
         describe: 'Sleep time between moves',
         default: 100,
     })
+    .option('load', {
+        describe: 'Load initial state (* = black; o = white; x = wall)',
+    })
+    .option('save', {
+        describe: 'Save each step',
+    })
     .help('help')
     .argv;
 
@@ -64,6 +71,17 @@ for (const color of C.STONE_COLORS) {
 let board = new Board(ARGS.w, ARGS.h);
 let moves = {[C.BLACK]: 0, [C.WHITE]: 0};
 let totalTimes = {[C.BLACK]: 0, [C.WHITE]: 0};
+
+if (ARGS.load)
+    board.deserialize(fs.readFileSync(ARGS.load, 'ascii'));
+
+let saveText = null;
+if (ARGS.save) {
+    saveText = '';
+    process.on('exit', () => {
+        fs.writeFileSync(ARGS.save, saveText, 'ascii');
+    });
+}
 
 if (ARGS.holes) {
     const holes = Math.min(ARGS.holes, ARGS.w * ARGS.h);
@@ -130,6 +148,11 @@ function make_turn() {
 
     board[i][j] = turn;
     draw_screen(board);
+
+    if (saveText !== null) {
+        saveText += '\n\n\n';
+        saveText += board.serialize();
+    }
 
     let first = board.yieldLines(5).next();
     if (!first.done) {

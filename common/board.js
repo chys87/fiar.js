@@ -197,6 +197,36 @@ const Board = exports.Board = class Board extends Array {
             }
         }
     }
+
+    serialize() {
+        let w = this.width;
+        let h = this.height;
+        let s = '';
+        for (let i = 1; i <= h; ++i) {
+            let r = '';
+            for (let j = 1; j <= w; ++j)
+                r += ' ' + C.SERIALIZE_MAP[this[i][j]];
+            r += '\n';
+            s += r;
+        }
+        return s;
+    }
+
+    deserialize(s) {
+        s.split('\n').forEach((line, i0) => {
+            let i = i0 + 1;
+            for (let j = 1, j0 = 1, l = line.length; j0 < l; j0 += 2, ++j) {
+                let c = line[j0];
+                let color = C.DESERIALIZE_MAP.get(c);
+                if (color !== undefined)
+                    this[i][j] = color;
+                else if (c == ' ' || c == '\n')
+                    ;
+                else
+                    throw RangeError(`Bad character ${c} in ${ARGS.load}`);
+            }
+        });
+    }
 };
 
 Board._virtualLinesCache = new Map;

@@ -32,10 +32,25 @@ const DIRECTIONS = {
     [LEFTDOWN]: {i: 1, j: -1},
 };
 
+const SERIALIZE_MAP = {
+    [WHITE]: 'o',
+    [BLACK]: '*',
+    [WALL]: 'x',
+    [BLANK]: ' ',
+};
+const DESERIALIZE_MAP = new Map([
+    ['o', WHITE],
+    ['*', BLACK],
+    ['x', WALL],
+    [' ', BLANK],
+]);
+
 Object.assign(exports, {
     BLANK, WHITE, BLACK, WALL,
     DISPLAY, COLOR_DESC, STONE_COLORS,
     REVERSE_COLOR,
 
     RIGHT, DOWN, RIGHTDOWN, LEFTDOWN, DIRECTIONS,
+
+    SERIALIZE_MAP, DESERIALIZE_MAP,
 })
