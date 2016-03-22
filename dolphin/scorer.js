@@ -16,15 +16,7 @@ const Scorer = exports.Scorer = class Scorer {
     constructor(board) {
         const w = this.w = board.width;
         const h = this.h = board.height;
-        this.scoreBoard = [new Array(h + 1), new Array(h + 1)];
-        for (const color of STONE_COLORS) {
-            let scb = this.scoreBoard[color];
-            for (let i = 1; i <= h; ++i) {
-                scb[i] = new Array(w + 1);
-                for (let j = 1; j <= w; ++j)
-                    scb[i][j] = [0, 0, 0, 0, 0, 0];
-            }
-        }
+        this.scoreBoard = utils.makeNestedArray([2, h + 1, w + 1, 6], 0);
 
         this._rowScoreCache = [new Array(h + 1), new Array(h + 1)];
 

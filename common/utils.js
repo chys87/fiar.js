@@ -131,3 +131,18 @@ const AttrMaxHeap = exports.AttrMaxHeap = class AttrMaxHeap extends Heap {
         return a[key] > b[key];
     }
 }
+
+const makeNestedArray = exports.makeNestedArray = function makeNestedArray(dimensions, fill) {
+    const l = dimensions.length;
+    const d0 = dimensions[0];
+    let res = new Array(d0);
+
+    if (l <= 1) {
+        if (fill !== undefined)
+            res.fill(fill);
+    } else {
+        for (let i = 0; i < d0; ++i)
+            res[i] = makeNestedArray(dimensions.slice(1), fill);
+    }
+    return res;
+};
