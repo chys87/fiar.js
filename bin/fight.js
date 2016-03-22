@@ -15,6 +15,7 @@ const AI_DICT = {
     'random': ['../common/ai', 'AI'],
     'donkey': ['../common/ai', 'DonkeyAI'],
     'dolphin': ['../dolphin/main', 'dolphinAI'],
+    'human': null,
 };
 const DEFAULT_AI = 'random';
 
@@ -60,14 +61,54 @@ const aiNames = {
 };
 const ais = {};
 
+class humanAI extends require('../common/ai').AI {
+    constructor(color, options) {
+        super(color, options);
+        process.stdin.pause();
+        process.stdin.setRawMode(true);
+        this._fd = fs.openSync('/dev/tty', 'r');
+
+        process.on('exit', () => {
+            process.stdin.setRawMode(false);
+        });
+    }
+
+    run(board) {
+        process.stdout.write('\x1b[?1000h');
+        try {
+            let b = new Buffer(32);
+            while (true) {
+                let l = fs.readSync(this._fd, b, 0, b.length);
+                if (l && (b[0] == 3 || b[0] == 'q' .charCodeAt(0)))
+                    return null;
+
+                if (l >= 5 && String(b).startsWith('\x1b[M')) {
+                    let key = b[3];
+                    let x = b[4] - 0x20;
+                    let y = b[5] - 0x20;
+                    if ((key & 3) == 0) {
+                        let i = y >> 1;
+                        let j = ((x - 3) >> 2) + 1;
+                        if (i >= 1 && i <= board.height && j >= 1 && j <= board.width && board[i][j] == C.BLANK)
+                            return [i, j];
+                    }
+                }
+            }
+
+        } finally {
+            process.stdout.write('\x1b[?1000l');
+        }
+    }
+}
+
 for (const color of C.STONE_COLORS) {
     const parts = aiNames[color].split(':');
     const aiInfo = AI_DICT[parts[0]];
-    if (!aiInfo) {
+    if (aiInfo === undefined) {
         console.error(`Unknown AI ${aiNames[color]}`);
         process.exit(1);
     }
-    const cls = require(aiInfo[0])[aiInfo[1]];
+    const cls = aiInfo ? require(aiInfo[0])[aiInfo[1]] : humanAI;
     let ai = new cls(color, ...parts.slice(1));
     ais[color] = ai;
 }
@@ -120,6 +161,7 @@ function draw_screen(board) {
             s += ` ${ms/mv} ms/move`;
         s += '\x1b[K\n';
     }
+    s += '\x1b[K';
     write(s);
 }
 
@@ -130,6 +172,7 @@ let turn = ARGS.white_first ? C.WHITE : C.BLACK;
 function make_turn() {
     let action;
     let beginTime = Date.now();
+    write(`Waiting for ${C.COLOR_DESC[turn]}...`);
     try {
         action = ais[turn].run(board.copy());
     } catch (e) {
