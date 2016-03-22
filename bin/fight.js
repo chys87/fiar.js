@@ -47,6 +47,10 @@ Available AIs: ${Object.keys(AI_DICT)}`)
     .option('save', {
         describe: 'Save each step',
     })
+    .option('white-first', {
+        alias: 'white_first',
+        describe: 'Let WHITE move first',
+    })
     .help('help')
     .argv;
 
@@ -121,7 +125,7 @@ function draw_screen(board) {
 
 write('\x1b[3J\x1b[H\x1b[2J'); // Clear screen
 
-let turn = C.BLACK;
+let turn = ARGS.white_first ? C.WHITE : C.BLACK;
 
 function make_turn() {
     let action;

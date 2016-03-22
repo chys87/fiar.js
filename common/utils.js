@@ -39,6 +39,12 @@ const Heap = exports.Heap = class Heap extends Array {
         return this._size;
     }
 
+    resizeTo(maxSize) {
+        while (this._size > maxSize)
+            this.pop();
+        this.length = maxSize;
+    }
+
     push(elem) {
         if (this._size < this.length) {
             let j = this._size++;
@@ -105,6 +111,10 @@ const Heap = exports.Heap = class Heap extends Array {
             }
         }
         return i;
+    }
+
+    *[Symbol.iterator]() {
+        yield* this.slice(0, this.size);
     }
 };
 

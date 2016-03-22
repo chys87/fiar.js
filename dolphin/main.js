@@ -3,6 +3,7 @@
 const AI = require('../common/ai').AI;
 const Board = require('../common/board').Board;
 const Scorer = require('./scorer').Scorer;
+const utils = require('../common/utils');
 const C = require('../common/constants');
 const BLANK = C.BLANK;
 const BLACK = C.BLACK;
@@ -18,88 +19,128 @@ const scoreHeap = class scoreHeap extends Heap {
 };
 
 const dolphinAI = exports.dolphinAI = class dolphinAI extends AI {
-    constructor(color, debug) {
+    constructor(color, options) {
         super(color);
+        const simple = (options == 'simple');
+        this._simple = simple;
+        this.dolphinMove = simple ? this.dolphinMoveSimple.bind(this) : this.dolphinMoveSearch.bind(this);
     }
 
     run(board) {
-        return this.obviousMove(board) || this.dolphinMove(board);
+        return this.obviousMove(board) || this.dolphinMove(board) || super.run(board);
     }
 
-    dolphinStep(scorer, board, color, maxWidth, maxDepth) {
-        let victoryMove = AI.victoryMove(board, color);
-        if (victoryMove)
-            return {i: victoryMove[0], j: victoryMove[1], score: Infinity};
-
-        const enemy = REVERSE_COLOR[color];
+    dolphinMoveSearch(board) {
+        const color = this.color;
+        const enemy = this.enemy;
         const w = board.width;
         const h = board.height;
 
-        if (maxDepth <= 1)
-            maxWidth = 1;
-        else
-            maxWidth = Math.max(maxWidth, 1);
+        let scorer = new Scorer(board);
+        let searchHeapSize = w * h;
+        let localHeapSize = Math.max(w, h);
 
-        let heap = new scoreHeap(maxWidth);
+        let searchHeap = new utils.AttrMinHeap(searchHeapSize, 'score');
 
+        let startTime = Date.now();
+        let endTime = startTime + 2000;
         for (let pos of board.yieldBlanks()) {
             let i = pos[0], j = pos[1];
 
             scorer.changeColor(board, i, j, color);
-            let scoreMe = scorer.scoreFor(color, false);
-            let scoreEnemy = scorer.scoreFor(enemy, true);
-            let score = scoreMe - scoreEnemy;
+            let scoreMe = scorer.scoreForMoved(board, color);
+            if (scoreMe == Infinity)
+                return [i, j];
+            let scoreEnemyInfo = scorer.scoreForNextMove(board, enemy);
+            let score = scoreMe - (scoreEnemyInfo ? scoreEnemyInfo.score : 0);
             scorer.changeColor(board, i, j, BLANK);
 
-            heap.push({i, j, score});
+            if (!scoreEnemyInfo || scoreEnemyInfo.score < Infinity)
+                searchHeap.push({
+                    moves: [{
+                        i, j,
+                        ei: scoreEnemyInfo && scoreEnemyInfo.i, ej: scoreEnemyInfo && scoreEnemyInfo.j,
+                    }],
+                    score,
+                });
         }
+        let stepTime = Date.now() - startTime;
 
-        if (!heap.size)
-            return null;
+        while (endTime - Date.now() <= stepTime) {
+            // Have results converged?
+            let candidates = new Set;
+            for (const item of searchHeap) {
+                let i = item.moves[0].i, j = item.moves[0].j;
+                candidates.add(`${i},${j}`);
+            }
+            if (candidates.size == 1) {
+                let pos = candidates.keys()[0].split(',');
+                return [+pos[0], +pos[1]];
+            }
 
-        if (maxDepth <= 1) {
-            // Simply find best score
-            while (heap.size > 1)
-                heap.pop();
-            return heap[0];
-        } else {
-            let nextMaxWidth = maxWidth >>> 1;
-            let nextMaxDepth = maxDepth - 1;
+            let newHeap = new utils.AttrMinHeap(searchHeapSize, 'score');
 
-            let best_score = -Infinity;
-            let best_move;
-            for (const item of heap) {
-                let i = item.i;
-                let j = item.j;
-                scorer.changeColor(board, i, j, color);
-                let enemyBestMoveInfo = this.dolphinStep(scorer, board, enemy, nextMaxWidth, nextMaxDepth);
-                scorer.changeColor(board, i, j, BLANK);
-                if (!enemyBestMoveInfo)
-                    continue;
-                let score = -enemyBestMoveInfo.score;
-                if (score > best_score) {
-                    best_score = score;
-                    best_move = [enemyBestMoveInfo.i, enemyBestMoveInfo.j];
+            let stepBeginTime = Date.now();
+            for (const item of searchHeap) {
+                if (Date.now() >= endTime)
+                    break;
+                for (const move of item.moves) {
+                    scorer.changeColor(board, move.i, move.j, color);
+                    if (move.ei && move.ej)
+                        scorer.changeColor(board, move.ei, move.ej, enemy);
+                }
+
+                let localHeap = new utils.AttrMinHeap(localHeapSize, 'score');
+
+                for (let pos of board.yieldBlanks()) {
+                    let i = pos[0], j = pos[1];
+
+                    scorer.changeColor(board, i, j, color);
+                    let scoreMe = scorer.scoreForMoved(board, color);
+                    if (scoreMe == Infinity)
+                        return [item.moves[0].i, item.moves[0].j];
+                    let scoreEnemyInfo = scorer.scoreForNextMove(board, enemy);
+                    let score = scoreMe - (scoreEnemyInfo ? scoreEnemyInfo.score : 0);
+                    scorer.changeColor(board, i, j, BLANK);
+
+                    if (!scoreEnemyInfo || scoreEnemyInfo.score < Infinity) {
+                        let moves = item.moves.slice();
+                        moves.push({
+                            i, j,
+                            ei: scoreEnemyInfo && scoreEnemyInfo.i, ej: scoreEnemyInfo && scoreEnemyInfo.j,
+                        });
+                        localHeap.push({moves, score});
+                    }
+                }
+
+                for (let heapItem of localHeap)
+                    newHeap.push(heapItem);
+
+                for (const move of item.moves) {
+                    scorer.changeColor(board, move.i, move.j, BLANK);
+                    if (move.ei && move.ej)
+                        scorer.changeColor(board, move.ei, move.ej, BLANK);
                 }
             }
-            if (!best_move)
-                return null;
-            else
-                return {i: best_move[0], j: best_move[1], score: best_score};
+            if (Date.now() >= endTime || newHeap.size == 0)
+                break;
+            searchHeap = newHeap;
+            let lastStepTime = Date.now() - stepBeginTime;
+            stepTime = stepTime * .5 + lastStepTime * .5;
         }
 
+        let bestMove;
+        let bestScore = -Infinity;
+        for (let item of searchHeap) {
+            if (item.score > bestScore) {
+                bestScore = item.score;
+                bestMove = [item.moves[0].i, item.moves[0].j];
+            }
+        }
+        return bestMove;
     }
 
-    _dolphinMove(board) {
-        let scorer = new Scorer(board);
-        let res = this.dolphinStep(scorer, board, this.color, 8, 3);
-        if (res)
-            return [res.i, res.j];
-        else
-            return null;
-    }
-
-    dolphinMove(board) {
+    dolphinMoveSimple(board) {
         const color = this.color;
         const enemy = this.enemy;
         const w = board.width;

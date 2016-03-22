@@ -55,9 +55,10 @@ const Scorer = exports.Scorer = class Scorer {
         let res = 0;
 
         for (let i = 1; i <= h; ++i) {
-            res += this.rowScoreForMoved(board, color, i);
-            if (res == Infinity)
-                break;
+            let rowRes = this.rowScoreForMoved(board, color, i);
+            if (rowRes == Infinity)
+                return rowRes;
+            res += rowRes;
         }
 
         return res;
@@ -91,21 +92,29 @@ const Scorer = exports.Scorer = class Scorer {
         const w = this.w;
         const h = this.h;
 
+        const enemy = REVERSE_COLOR[color];
+
         if (!maxReturns || maxReturns < 1)
             maxReturns = 1;
         let heap = new AttrMinHeap(maxReturns, 'weight');
 
-        const scb0 = this.scoreBoard[0];
-        const scb1 = this.scoreBoard[1];
+        const scb = this.scoreBoard;
+        const scb0 = scb[0];
+        const scb1 = scb[1];
 
         for (let pos of board.yieldBlanks()) {
             let i = pos[0], j = pos[1];
             let st0 = scb0[i][j];
             let st1 = scb1[i][j];
+
+            if (st0[4] || st1[4]) // Only sane choice
+                return [{i, j, weight: Infinity}];
+
             let weight =
                         st0[5] * 1000000 + st0[4] * 20000 + st0[3] * 100 + st0[2] * 8 + st0[1] +
                         st1[5] * 1000000 + st1[4] * 20000 + st1[3] * 100 + st1[2] * 8 + st1[1];
-            heap.push({i, j, weight});
+            if (weight)
+                heap.push({i, j, weight});
         }
 
         let array = heap.slice(0, heap.size);
