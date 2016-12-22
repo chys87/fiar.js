@@ -78,11 +78,11 @@ const Scorer = exports.Scorer = class Scorer {
                 res = Infinity;
                 break;
             } else if (stats[4] >= 2)
-                res += 1000000;
+                res += 10000;
             else if (stats[4] + stats[3] >= 2)
-                res += 50000;
+                res += 500;
             else
-                res += stats[4] * 20000 + stats[3] * 100 + stats[2] * 8 + stats[1];
+                res += stats[4] * 200 + stats[3] * 16 + stats[2] * 4 + stats[1];
         }
         this._rowScoreCache[color][i] = res;
         return res;

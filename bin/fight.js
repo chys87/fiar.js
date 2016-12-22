@@ -61,7 +61,7 @@ const aiNames = {
 };
 const ais = {};
 
-class humanAI extends require('../common/ai').AI {
+class HumanI extends require('../common/ai').AI {
     constructor(color, options) {
         super(color, options);
         process.stdin.pause();
@@ -73,14 +73,24 @@ class humanAI extends require('../common/ai').AI {
         });
     }
 
-    run(board) {
+    run(board, callback) {
         process.stdout.write('\x1b[?1000h');
-        try {
-            let b = new Buffer(32);
-            while (true) {
-                let l = fs.readSync(this._fd, b, 0, b.length);
-                if (l && (b[0] == 3 || b[0] == 'q' .charCodeAt(0)))
-                    return null;
+        const over = () => process.stdout.write('\x1b[?1000l');
+
+        const fd = this._fd;
+        let b = new Buffer(32);
+
+        const step = () => {
+            fs.read(fd, b, 0, b.length, null, (err, l, b) => {
+                if (err) {
+                    over();
+                    callback(null);
+                }
+
+                if (l && (b[0] == 3 || b[0] == 'q' .charCodeAt(0))) {
+                    over();
+                    callback(null);
+                }
 
                 if (l >= 5 && String(b).startsWith('\x1b[M')) {
                     let key = b[3];
@@ -89,15 +99,16 @@ class humanAI extends require('../common/ai').AI {
                     if ((key & 3) == 0) {
                         let i = y >> 1;
                         let j = ((x - 3) >> 2) + 1;
-                        if (i >= 1 && i <= board.height && j >= 1 && j <= board.width && board[i][j] == C.BLANK)
-                            return [i, j];
+                        if (i >= 1 && i <= board.height && j >= 1 && j <= board.width && board[i][j] == C.BLANK) {
+                            over();
+                            callback([i, j]);
+                        }
                     }
                 }
-            }
-
-        } finally {
-            process.stdout.write('\x1b[?1000l');
-        }
+                step();
+            });
+        };
+        step();
     }
 }
 
@@ -108,7 +119,7 @@ for (const color of C.STONE_COLORS) {
         console.error(`Unknown AI ${aiNames[color]}`);
         process.exit(1);
     }
-    const cls = aiInfo ? require(aiInfo[0])[aiInfo[1]] : humanAI;
+    const cls = aiInfo ? require(aiInfo[0])[aiInfo[1]] : HumanI;
     let ai = new cls(color, ...parts.slice(1));
     ais[color] = ai;
 }
@@ -170,50 +181,45 @@ write('\x1b[3J\x1b[H\x1b[2J'); // Clear screen
 let turn = ARGS.white_first ? C.WHITE : C.BLACK;
 
 function make_turn() {
-    let action;
     let beginTime = Date.now();
     write(`Waiting for ${C.COLOR_DESC[turn]}...`);
-    try {
-        action = ais[turn].run(board.copy());
-    } catch (e) {
-        console.error(`${C.COLOR_DESC[turn]} threw an exception.`);
-        throw e;
-    }
-    let usedTime = Date.now() - beginTime;
-    moves[turn]++;
-    totalTimes[turn] += usedTime;
-    if (!action) {
-        console.log(`${C.COLOR_DESC[turn]} surrenders.`);
-        return;
-    }
-    const i = action[0];
-    const j = action[1];
-    if (!(i >= 1 && i <= board.height) || !(j >= 1 && j <= board.width) || board[i][j] != C.BLANK) {
-        console.error(`${C.COLOR_DESC[turn]} attempts to make an illegal move (${i}, ${j})`);
-        return;
-    }
+    ais[turn].run(board.copy(), action => {
+        let usedTime = Date.now() - beginTime;
+        moves[turn]++;
+        totalTimes[turn] += usedTime;
+        if (!action) {
+            console.log(`${C.COLOR_DESC[turn]} surrenders.`);
+            return;
+        }
+        const i = action[0];
+        const j = action[1];
+        if (!(i >= 1 && i <= board.height) || !(j >= 1 && j <= board.width) || board[i][j] != C.BLANK) {
+            console.error(`${C.COLOR_DESC[turn]} attempts to make an illegal move (${i}, ${j})`);
+            return;
+        }
 
-    board[i][j] = turn;
-    draw_screen(board);
+        board[i][j] = turn;
+        draw_screen(board);
 
-    if (saveText !== null) {
-        saveText += '\n\n\n';
-        saveText += board.serialize();
-    }
+        if (saveText !== null) {
+            saveText += '\n\n\n';
+            saveText += board.serialize();
+        }
 
-    let first = board.yieldLines(5).next();
-    if (!first.done) {
-        console.log(`${C.COLOR_DESC[first.value.color]} wins!!`);
-        return;
-    }
+        let first = board.yieldLines(5).next();
+        if (!first.done) {
+            console.log(`${C.COLOR_DESC[first.value.color]} wins!!`);
+            return;
+        }
 
-    if (!board.hasBlanks()) {
-        console.log('No more legal moves. WHITE wins!!');
-        return;
-    }
+        if (!board.hasBlanks()) {
+            console.log('No more legal moves. WHITE wins!!');
+            return;
+        }
 
-    turn = C.REVERSE_COLOR[turn];
-    setTimeout(make_turn, ARGS.sleep);
+        turn = C.REVERSE_COLOR[turn];
+        setTimeout(make_turn, ARGS.sleep);
+    });
 }
 
 draw_screen(board);

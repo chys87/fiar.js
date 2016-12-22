@@ -26,8 +26,11 @@ const dolphinAI = exports.dolphinAI = class dolphinAI extends AI {
         this.dolphinMove = simple ? this.dolphinMoveSimple.bind(this) : this.dolphinMoveSearch.bind(this);
     }
 
-    run(board) {
-        return this.obviousMove(board) || this.dolphinMove(board) || super.run(board);
+    run(board, callback) {
+        const action = this.obviousMove(board) || this.dolphinMove(board);
+        if (action)
+            callback(action);
+        return super.run(board, callback);
     }
 
     dolphinMoveSearch(board) {
@@ -166,6 +169,6 @@ const dolphinAI = exports.dolphinAI = class dolphinAI extends AI {
             }
         }
 
-        return best_move || super.run(board);
+        return best_move;
     }
 };

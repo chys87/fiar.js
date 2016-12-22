@@ -16,8 +16,8 @@ const AI = exports.AI = class AI {
         this.enemy = REVERSE_COLOR[color];
     }
 
-    run(board) {
-        return this.obviousMove(board) || this.randomMove(board);
+    run(board, callback) {
+        callback(this.obviousMove(board) || this.randomMove(board));
     }
 
     randomMove(board) {
@@ -66,10 +66,10 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
         this.aggressiveness = aggressiveness || .5;
     }
 
-    run(board) {
+    run(board, callback) {
         let obvious = this.obviousMove(board);
         if (obvious)
-            return obvious;
+            return callback(obvious);
 
         const color = this.color;
         const w = board.width;
@@ -89,7 +89,10 @@ const DonkeyAI = exports.DonkeyAI = class DonkeyAI extends AI {
             board[i][j] = BLANK;
         }
 
-        return best_move || super.run(board);
+        if (best_move)
+            return callback(obvious);
+        else
+            return super.run(board, callback);
     }
 
     getScore(board) {
